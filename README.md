@@ -1,17 +1,5 @@
 # YouTube Transcript Chatbot
 
-<div align="center">
-
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Frontend-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://your-app-name.netlify.app)
-[![API Docs](https://img.shields.io/badge/API%20Docs-Backend-46E3B7?style=for-the-badge&logo=fastapi&logoColor=white)](https://your-backend.onrender.com/docs)
-[![Health Check](https://img.shields.io/badge/Health%20Check-Status-00D9FF?style=for-the-badge&logo=render&logoColor=white)](https://your-backend.onrender.com/health)
-
-**🌐 [Live Application](https://your-app-name.netlify.app)** | **📚 [API Documentation](https://your-backend.onrender.com/docs)** | **🔧 [Backend Health](https://your-backend.onrender.com/health)**
-
-</div>
-
----
-
 A production-ready web application that allows users to chat with YouTube video transcripts using RAG (Retrieval Augmented Generation) powered by OpenAI and LangChain.
 
 > **📝 Note:** Replace `your-app-name.netlify.app` and `your-backend.onrender.com` with your actual deployed URLs in the badges above.
