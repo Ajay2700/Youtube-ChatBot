@@ -56,16 +56,79 @@ class RAGService:
         raise ValueError(f"Invalid YouTube URL or video ID: {youtube_url}")
     
     def fetch_transcript(self, video_id: str) -> str:
-        """Fetch transcript from YouTube"""
-        try:
-            fetched = YouTubeTranscriptApi().fetch(video_id, languages=("en",))
-            transcript_list = fetched.to_raw_data()
-            transcript = " ".join(chunk["text"] for chunk in transcript_list)
-            return transcript
-        except TranscriptsDisabled:
-            raise ValueError(f"No captions available for video {video_id}")
-        except Exception as e:
-            raise ValueError(f"Error fetching transcript: {str(e)}")
+        """Fetch transcript from YouTube with retry and better error handling"""
+        import time
+        
+        max_retries = 3
+        retry_delay = 2  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                # Try to fetch transcript
+                fetched = YouTubeTranscriptApi().fetch(video_id, languages=("en",))
+                transcript_list = fetched.to_raw_data()
+                transcript = " ".join(chunk["text"] for chunk in transcript_list)
+                return transcript
+                
+            except TranscriptsDisabled:
+                raise ValueError(
+                    f"No captions/transcripts are available for video {video_id}. "
+                    "The video may not have captions enabled."
+                )
+            except Exception as e:
+                error_msg = str(e).lower()
+                
+                # Check for IP block / cloud provider block
+                if "blocked" in error_msg or "ip" in error_msg or "cloud provider" in error_msg:
+                    raise ValueError(
+                        f"YouTube is blocking requests from this server (cloud provider IP detected).\n\n"
+                        f"This is a known limitation when deploying to cloud providers like Render, AWS, GCP, etc.\n\n"
+                        f"**Solutions:**\n"
+                        f"1. Wait 10-30 minutes and try again (IP blocks are often temporary)\n"
+                        f"2. Try a different video with captions enabled\n"
+                        f"3. Use a residential proxy service (requires additional setup)\n"
+                        f"4. Consider using YouTube Data API v3 (official API)\n\n"
+                        f"Video ID: {video_id}"
+                    )
+                
+                # Check for rate limiting
+                if "too many" in error_msg or "rate limit" in error_msg or "429" in error_msg:
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delay * (attempt + 1)
+                        time.sleep(wait_time)
+                        continue
+                    raise ValueError(
+                        f"YouTube is rate-limiting requests. Please try again in a few minutes. "
+                        f"Video: {video_id}"
+                    )
+                
+                # Check for video unavailable
+                if "unavailable" in error_msg or "private" in error_msg or "deleted" in error_msg:
+                    raise ValueError(
+                        f"Video {video_id} is unavailable. It may be private, deleted, or age-restricted."
+                    )
+                
+                # Check for no transcript found
+                if "no transcript" in error_msg or "not found" in error_msg:
+                    raise ValueError(
+                        f"No English transcript found for video {video_id}. "
+                        "The video may not have English captions available."
+                    )
+                
+                # For other errors, retry if attempts remaining
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (attempt + 1)
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    # Last attempt failed, raise with original error
+                    raise ValueError(f"Error fetching transcript: {str(e)}")
+        
+        # If we get here, all retries failed (shouldn't happen, but just in case)
+        raise ValueError(
+            f"Failed to fetch transcript for video {video_id} after {max_retries} attempts. "
+            "Please try again later or use a different video."
+        )
     
     def process_video(self, video_id: str, youtube_url: Optional[str] = None) -> Dict:
         """Process YouTube video: fetch transcript, create vector store, and setup RAG chain"""
