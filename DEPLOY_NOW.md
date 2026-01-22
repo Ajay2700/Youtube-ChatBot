@@ -75,6 +75,9 @@ Click "Add Environment Variable":
 4. **Wait** 5-10 minutes for deployment
 
 5. **Copy** your backend URL (e.g., `https://yt-chatbot-backend.onrender.com`)
+   - **Where to find it?** See `WHERE_TO_FIND_RENDER_URL.md` for detailed guide
+   - **Quick:** It's displayed at the top of your Render service dashboard
+   - **Format:** `https://your-service-name.onrender.com`
 
 **✅ Backend deployed!**
 
@@ -104,6 +107,8 @@ Click "Add variable":
 
 - **Key:** `VITE_API_BASE_URL`
 - **Value:** Your Render backend URL (from Step 2)
+  - **Don't know where to find it?** See `WHERE_TO_FIND_RENDER_URL.md`
+  - **Example:** `https://yt-chatbot-backend.onrender.com`
 
 4. Click "Deploy site"
 
