@@ -48,6 +48,9 @@ A production-ready web application that allows users to chat with YouTube video 
                         └─────────────┘
 ```
 
+<img width="1322" height="900" alt="image" src="https://github.com/user-attachments/assets/4ebbdf15-0ade-4723-b217-b47db2ae7b3a" />
+
+
 ## 🚀 Quick Start
 
 ### Option 1: Deploy to Production (Recommended)
