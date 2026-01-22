@@ -1,0 +1,16 @@
+# Navigate to backend folder
+cd D:\GENAI\GENERATIVE_AI_YOUTUBE\13_Yt_Bot_Project\backend
+
+# Load API key from .env and start server
+$env:OPENAI_API_KEY = (Get-Content .env | Select-String "OPENAI_API_KEY").ToString().Split('=')[1].Trim()
+
+.\venv\Scripts\python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+
+
+# Navigate to frontend folder
+cd D:\GENAI\GENERATIVE_AI_YOUTUBE\13_Yt_Bot_Project\frontend
+
+# Start development server
+npm run dev

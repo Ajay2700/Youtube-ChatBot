@@ -1,0 +1,19 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  # This workflow is for reference
+  # Actual deployment happens via Render and Netlify webhooks
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deployment Notification
+        run: |
+          echo "Deployment triggered"
+          echo "Backend will deploy to Render"
+          echo "Frontend will deploy to Netlify"
