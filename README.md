@@ -1,6 +1,20 @@
 # YouTube Transcript Chatbot
 
+<div align="center">
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Frontend-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://your-app-name.netlify.app)
+[![API Docs](https://img.shields.io/badge/API%20Docs-Backend-46E3B7?style=for-the-badge&logo=fastapi&logoColor=white)](https://your-backend.onrender.com/docs)
+[![Health Check](https://img.shields.io/badge/Health%20Check-Status-00D9FF?style=for-the-badge&logo=render&logoColor=white)](https://your-backend.onrender.com/health)
+
+**🌐 [Live Application](https://your-app-name.netlify.app)** | **📚 [API Documentation](https://your-backend.onrender.com/docs)** | **🔧 [Backend Health](https://your-backend.onrender.com/health)**
+
+</div>
+
+---
+
 A production-ready web application that allows users to chat with YouTube video transcripts using RAG (Retrieval Augmented Generation) powered by OpenAI and LangChain.
+
+> **📝 Note:** Replace `your-app-name.netlify.app` and `your-backend.onrender.com` with your actual deployed URLs in the badges above.
 
 ## 🚀 Features
 
@@ -314,6 +328,42 @@ pip install -r requirements.txt
 rm -rf node_modules package-lock.json
 npm install
 ```
+
+## 💼 Project Showcase (For Resume)
+
+### 🎯 Project Highlights
+- **Full-Stack Application**: React frontend + FastAPI backend
+- **AI-Powered**: RAG (Retrieval Augmented Generation) with OpenAI GPT-4o-mini
+- **Production Deployment**: Deployed on Netlify (Frontend) + Render (Backend)
+- **Modern Tech Stack**: React, FastAPI, LangChain, FAISS, Tailwind CSS
+- **Vector Database**: FAISS for efficient similarity search
+- **RESTful API**: Well-documented FastAPI endpoints
+- **Docker Support**: Containerized deployment ready
+
+### 🔗 Live Links
+- **Frontend:** [Live Application](https://your-app-name.netlify.app)
+- **Backend API:** [API Documentation](https://your-backend.onrender.com/docs)
+- **GitHub:** [Repository](https://github.com/Ajay2700/Youtube-ChatBot)
+
+### 🛠️ Key Technologies
+- **Frontend:** React, Vite, Tailwind CSS, Axios
+- **Backend:** FastAPI, Python, LangChain, OpenAI API
+- **Vector Store:** FAISS
+- **Deployment:** Netlify, Render
+- **DevOps:** Docker, Docker Compose
+
+### 📊 Features Implemented
+- ✅ YouTube transcript fetching and processing
+- ✅ Text chunking and embedding generation
+- ✅ Vector similarity search
+- ✅ RAG-based question answering
+- ✅ Real-time chat interface
+- ✅ Error handling and retry logic
+- ✅ CORS configuration
+- ✅ Environment variable management
+- ✅ Production-ready deployment
+
+---
 
 ## 📝 License
 
