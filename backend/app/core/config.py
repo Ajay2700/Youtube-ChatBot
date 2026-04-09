@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings
 from pydantic import model_validator
 from typing import List, Any
 import os
+import json
 
 
 class Settings(BaseSettings):
@@ -86,6 +87,19 @@ class Settings(BaseSettings):
     WEBSHARE_PROXY_PASSWORD: str = ""
     # Option B: Generic HTTPS proxy URL (e.g. https://user:pass@proxy.example.com:8080)
     HTTPS_PROXY_URL: str = ""
+
+    # Token quota (per user per day) for chat endpoint
+    # Users are identified by X-User-Id header (preferred) or client IP.
+    USER_TOKEN_LIMIT_DEFAULT: int = 20000
+    # JSON object mapping specific user ids to limits, e.g. {"alice": 5000, "bob": 100000}
+    USER_TOKEN_LIMITS_JSON: str = ""
+
+    def get_user_token_limits(self) -> dict:
+        try:
+            data = json.loads(self.USER_TOKEN_LIMITS_JSON) if self.USER_TOKEN_LIMITS_JSON else {}
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
     
     class Config:
         env_file = ".env"
