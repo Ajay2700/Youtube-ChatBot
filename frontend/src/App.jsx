@@ -26,20 +26,20 @@ function App() {
     setIsProcessing(false)
   }
 
-  // Check backend health on mount
-  useEffect(() => {
-    const checkBackend = async () => {
-      try {
-        await checkBackendHealth()
-        setBackendStatus('connected')
-      } catch (error) {
-        setBackendStatus('disconnected')
-        console.error('Backend connection failed:', error)
-      }
+  const checkBackend = async () => {
+    setBackendStatus('checking')
+    try {
+      await checkBackendHealth()
+      setBackendStatus('connected')
+    } catch (error) {
+      setBackendStatus('disconnected')
+      console.error('Backend connection failed:', error)
     }
+  }
+
+  // Check backend health on mount and every 10 seconds
+  useEffect(() => {
     checkBackend()
-    
-    // Check every 10 seconds
     const interval = setInterval(checkBackend, 10000)
     return () => clearInterval(interval)
   }, [])
@@ -62,10 +62,10 @@ function App() {
               <div className="flex-1">
                 <p className="font-semibold text-red-800 dark:text-red-300">Backend Server Not Connected</p>
                 <p className="text-sm text-red-700 dark:text-red-400 mt-1">
-                  Please ensure the backend server is running on http://localhost:8000
+                  Please ensure the backend server is running on http://127.0.0.1:8000
                 </p>
                 <button
-                  onClick={() => window.location.reload()}
+                  onClick={checkBackend}
                   className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm transition-colors"
                 >
                   Retry Connection

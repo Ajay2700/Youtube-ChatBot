@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+// Use 127.0.0.1 (IPv4) not localhost: on Windows, localhost often resolves to ::1 (IPv6)
+// which doesn't match the IPv4-only backend binding.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -30,13 +32,13 @@ api.interceptors.response.use(
     if (error.code === 'ECONNABORTED') {
       error.message = 'Request timeout. The server is taking too long to respond.'
     } else if (error.code === 'ERR_NETWORK') {
-      error.message = 'Network error. Please check if the backend server is running on http://localhost:8000'
+      error.message = 'Network error. Please check if the backend server is running on http://127.0.0.1:8000'
     } else if (error.response) {
       // Server responded with error status
       error.message = error.response.data?.detail || error.response.data?.message || error.message
     } else if (error.request) {
       // Request made but no response received
-      error.message = 'No response from server. Please ensure the backend is running on http://localhost:8000'
+      error.message = 'No response from server. Please ensure the backend is running on http://127.0.0.1:8000'
     }
     return Promise.reject(error)
   }
@@ -98,9 +100,9 @@ export const checkBackendHealth = async () => {
   } catch (error) {
     console.error('Backend health check failed:', error)
     if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-      throw new Error('Backend server is not responding. Please ensure it is running on http://localhost:8000')
+      throw new Error('Backend server is not responding. Please ensure it is running on http://127.0.0.1:8000')
     } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      throw new Error('Cannot connect to backend server. Please ensure it is running on http://localhost:8000')
+      throw new Error('Cannot connect to backend server. Please ensure it is running on http://127.0.0.1:8000')
     }
     throw error
   }
