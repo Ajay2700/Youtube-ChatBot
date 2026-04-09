@@ -50,12 +50,18 @@ async def chat(request: ChatRequest, http_request: Request):
         # If X-User-Id is present, allow per-user overrides by raw id string
         effective_limit = int(limits.get(header_user_id, settings.USER_TOKEN_LIMIT_DEFAULT)) if header_user_id else int(settings.USER_TOKEN_LIMIT_DEFAULT)
 
-        decision = check_quota(_quota_store, user_key=user_key, limit=effective_limit)
-        if not decision.allowed:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Daily token limit exceeded. Limit={decision.limit}, Used={decision.used}. Try again tomorrow."
-            )
+        try:
+            decision = check_quota(_quota_store, user_key=user_key, limit=effective_limit)
+            if not decision.allowed:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Token limit exceeded for today. Please try again tomorrow."
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            # If quota store is temporarily unavailable, don't block chat entirely.
+            decision = None
         
         result = rag_service.chat(
             video_id=request.video_id,
@@ -63,12 +69,19 @@ async def chat(request: ChatRequest, http_request: Request):
         )
 
         # Count tokens for question + answer, then charge against quota.
-        tokens_used = _token_counter.count(request.question) + _token_counter.count(result.get("answer", ""))
-        _quota_store.add_tokens(user_key=user_key, day_key=_utc_day_key(), tokens=tokens_used)
+        # Quota write failures should not fail the user-facing request.
+        try:
+            tokens_used = _token_counter.count(request.question) + _token_counter.count(result.get("answer", ""))
+            _quota_store.add_tokens(user_key=user_key, day_key=_utc_day_key(), tokens=tokens_used)
+        except Exception:
+            pass
         
         return ChatResponse(**result)
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Something went wrong while processing your request. Please try again."
+        )

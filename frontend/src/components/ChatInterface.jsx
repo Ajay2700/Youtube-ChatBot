@@ -43,12 +43,13 @@ function ChatInterface({ videoId }) {
       const statusCode = err.response?.status
       const backendDetail = err.response?.data?.detail || err.message || 'Failed to get response'
       const quotaMessage = 'Token limit exceeded (2000/day). Please try again tomorrow or contact support.'
+      const gentleError = 'Sorry, I could not process that request right now. Please try again in a moment.'
 
       if (statusCode === 429) {
         setIsLimitExceeded(true)
         setError(quotaMessage)
       } else {
-        setError(backendDetail)
+        setError(statusCode >= 500 ? gentleError : backendDetail)
       }
       setMessages((prev) => [
         ...prev,
@@ -56,7 +57,7 @@ function ChatInterface({ videoId }) {
           role: 'assistant',
           content: statusCode === 429
             ? quotaMessage
-            : 'Sorry, I encountered an error. Please try again.',
+            : gentleError,
           timestamp: new Date(),
           isError: true,
         },
@@ -97,7 +98,7 @@ function ChatInterface({ videoId }) {
               Ask anything about the video
             </h3>
             <p className="text-sm text-gray-500 dark:text-slate-400 mb-7 max-w-sm">
-              I'll answer based on the transcript using RAG.
+              I will answer based on the transcript using RAG.
             </p>
 
             <div className="w-full max-w-lg grid grid-cols-1 sm:grid-cols-2 gap-2">

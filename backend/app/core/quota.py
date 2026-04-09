@@ -59,7 +59,8 @@ class TokenQuotaStore:
             )
             conn.commit()
 
-    def get_used(self, user_key: str, day_key: str) -> int:
+    def get_used(self, user_key: str, day_key: Optional[str]) -> int:
+        day_key = day_key or _utc_day_key()
         with self._lock, self._connect() as conn:
             cur = conn.execute(
                 "SELECT tokens_used FROM token_usage WHERE user_key = ? AND day_key = ?",
@@ -68,7 +69,8 @@ class TokenQuotaStore:
             row = cur.fetchone()
             return int(row[0]) if row else 0
 
-    def add_tokens(self, user_key: str, day_key: str, tokens: int) -> int:
+    def add_tokens(self, user_key: str, day_key: Optional[str], tokens: int) -> int:
+        day_key = day_key or _utc_day_key()
         now = int(time.time())
         with self._lock, self._connect() as conn:
             conn.execute(
