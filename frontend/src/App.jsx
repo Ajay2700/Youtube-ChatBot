@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import VideoInput from './components/VideoInput'
 import ChatInterface from './components/ChatInterface'
-import { Youtube, Sparkles, ArrowLeft, AlertCircle } from 'lucide-react'
+import { Youtube, Sparkles, ArrowLeft } from 'lucide-react'
 import { checkBackendHealth } from './services/api'
 
 function App() {
@@ -54,35 +54,7 @@ function App() {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
-        {/* Backend Status Alert */}
-        {backendStatus === 'disconnected' && (
-          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl animate-scale-in">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="font-semibold text-red-800 dark:text-red-300">Backend Server Not Connected</p>
-                <p className="text-sm text-red-700 dark:text-red-400 mt-1">
-                  Please ensure the backend is deployed and `VITE_API_BASE_URL` points to it.
-                </p>
-                <button
-                  onClick={checkBackend}
-                  className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm transition-colors"
-                >
-                  Retry Connection
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {backendStatus === 'checking' && (
-          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-blue-800 dark:text-blue-300">Checking backend connection...</p>
-            </div>
-          </div>
-        )}
+        {/* Backend status is checked silently; errors are shown inline when API calls fail */}
 
         {/* Enhanced Header */}
         <header className="text-center mb-8 animate-fade-in">
