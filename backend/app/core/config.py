@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
     
     # OpenAI API Key
-    OPENAI_API_KEY: str
+    # Keep optional so the API can boot and serve `/health` without it.
+    # Endpoints that need OpenAI will validate presence at runtime.
+    OPENAI_API_KEY: str = ""
     
     # CORS origins - stored as string, converted to list after initialization
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001"

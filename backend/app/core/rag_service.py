@@ -21,11 +21,9 @@ class RAGService:
     """Service for handling RAG operations"""
     
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings(model=settings.EMBEDDING_MODEL)
-        self.llm = ChatOpenAI(
-            model=settings.LLM_MODEL,
-            temperature=settings.LLM_TEMPERATURE
-        )
+        # Lazy-init OpenAI clients so the server can start without OPENAI_API_KEY.
+        self.embeddings = None
+        self.llm = None
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
             chunk_overlap=settings.CHUNK_OVERLAP
@@ -36,6 +34,26 @@ class RAGService:
         
         # Ensure vector store directory exists
         Path(settings.VECTOR_STORE_DIR).mkdir(parents=True, exist_ok=True)
+
+    def _ensure_openai_clients(self) -> None:
+        """Create OpenAI clients on-demand with clear errors when missing config."""
+        if self.embeddings is not None and self.llm is not None:
+            return
+
+        api_key = (settings.OPENAI_API_KEY or "").strip()
+        if not api_key:
+            raise ValueError(
+                "OPENAI_API_KEY is not set. Create a `.env` file in `backend/` (or set an env var) "
+                "with OPENAI_API_KEY=... then restart the backend."
+            )
+
+        # Prefer explicit key over relying on environment propagation.
+        self.embeddings = OpenAIEmbeddings(model=settings.EMBEDDING_MODEL, api_key=api_key)
+        self.llm = ChatOpenAI(
+            model=settings.LLM_MODEL,
+            temperature=settings.LLM_TEMPERATURE,
+            api_key=api_key,
+        )
     
     def extract_video_id(self, youtube_url: str) -> str:
         """Extract video ID from YouTube URL"""
@@ -79,7 +97,13 @@ class RAGService:
                 error_msg = str(e).lower()
                 
                 # Check for IP block / cloud provider block
-                if "blocked" in error_msg or "ip" in error_msg or "cloud provider" in error_msg:
+                # Keep this check conservative; lots of unrelated errors can contain "ip".
+                if (
+                    "cloud provider" in error_msg
+                    or "unusual traffic" in error_msg
+                    or "captcha" in error_msg
+                    or "automated queries" in error_msg
+                ):
                     raise ValueError(
                         f"YouTube is blocking requests from this server (cloud provider IP detected).\n\n"
                         f"This is a known limitation when deploying to cloud providers like Render, AWS, GCP, etc.\n\n"
@@ -88,7 +112,8 @@ class RAGService:
                         f"2. Try a different video with captions enabled\n"
                         f"3. Use a residential proxy service (requires additional setup)\n"
                         f"4. Consider using YouTube Data API v3 (official API)\n\n"
-                        f"Video ID: {video_id}"
+                        f"Video ID: {video_id}\n\n"
+                        f"Original error: {str(e)}"
                     )
                 
                 # Check for rate limiting
@@ -122,7 +147,12 @@ class RAGService:
                     continue
                 else:
                     # Last attempt failed, raise with original error
-                    raise ValueError(f"Error fetching transcript: {str(e)}")
+                    raise ValueError(
+                        "Error fetching transcript from YouTube. "
+                        "This is usually due to missing/disabled captions, rate limits, or a temporarily blocked request.\n\n"
+                        f"Video ID: {video_id}\n"
+                        f"Original error: {str(e)}"
+                    )
         
         # If we get here, all retries failed (shouldn't happen, but just in case)
         raise ValueError(
@@ -132,6 +162,8 @@ class RAGService:
     
     def process_video(self, video_id: str, youtube_url: Optional[str] = None) -> Dict:
         """Process YouTube video: fetch transcript, create vector store, and setup RAG chain"""
+        self._ensure_openai_clients()
+
         # Extract video ID if URL provided
         if youtube_url:
             video_id = self.extract_video_id(youtube_url)
@@ -221,6 +253,8 @@ Answer:""",
     
     def chat(self, video_id: str, question: str) -> Dict:
         """Chat with the RAG system about a video"""
+        self._ensure_openai_clients()
+
         if video_id not in self.chains:
             raise ValueError(f"Video {video_id} not processed. Please process the video first.")
         
