@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     # Retrieval settings
     RETRIEVER_K: int = 4
     
+    # Proxy settings for youtube-transcript-api (needed on cloud providers)
+    # Option A: Webshare residential proxy (recommended, free tier available at webshare.io)
+    WEBSHARE_PROXY_USERNAME: str = ""
+    WEBSHARE_PROXY_PASSWORD: str = ""
+    # Option B: Generic HTTPS proxy URL (e.g. https://user:pass@proxy.example.com:8080)
+    HTTPS_PROXY_URL: str = ""
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

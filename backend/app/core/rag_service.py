@@ -7,6 +7,7 @@ from typing import Optional, List, Dict
 from pathlib import Path
 
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled
+from youtube_transcript_api.proxies import GenericProxyConfig
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import FAISS
@@ -34,6 +35,34 @@ class RAGService:
         
         # Ensure vector store directory exists
         Path(settings.VECTOR_STORE_DIR).mkdir(parents=True, exist_ok=True)
+        
+        # Build proxy config for youtube-transcript-api
+        self._proxy_config = self._build_proxy_config()
+
+    @staticmethod
+    def _build_proxy_config():
+        """Build proxy config from env vars. Returns None if no proxy is configured."""
+        # Option A: Webshare proxy
+        ws_user = (settings.WEBSHARE_PROXY_USERNAME or "").strip()
+        ws_pass = (settings.WEBSHARE_PROXY_PASSWORD or "").strip()
+        if ws_user and ws_pass:
+            try:
+                from youtube_transcript_api.proxies import WebshareProxyConfig
+                return WebshareProxyConfig(
+                    proxy_username=ws_user,
+                    proxy_password=ws_pass,
+                )
+            except ImportError:
+                pass
+
+        # Option B: Generic HTTPS proxy
+        proxy_url = (settings.HTTPS_PROXY_URL or "").strip()
+        if proxy_url:
+            return GenericProxyConfig(
+                https_url=proxy_url,
+            )
+
+        return None
 
     def _ensure_openai_clients(self) -> None:
         """Create OpenAI clients on-demand with clear errors when missing config."""
@@ -82,8 +111,8 @@ class RAGService:
         
         for attempt in range(max_retries):
             try:
-                # Try to fetch transcript
-                fetched = YouTubeTranscriptApi().fetch(video_id, languages=("en",))
+                ytt_api = YouTubeTranscriptApi(proxy_config=self._proxy_config) if self._proxy_config else YouTubeTranscriptApi()
+                fetched = ytt_api.fetch(video_id, languages=("en",))
                 transcript_list = fetched.to_raw_data()
                 transcript = " ".join(chunk["text"] for chunk in transcript_list)
                 return transcript
@@ -103,17 +132,21 @@ class RAGService:
                     or "unusual traffic" in error_msg
                     or "captcha" in error_msg
                     or "automated queries" in error_msg
+                    or "blocking" in error_msg
+                    or "blocked" in error_msg
                 ):
+                    proxy_hint = (
+                        "To fix this, set a residential proxy in Render env vars:\n"
+                        "  WEBSHARE_PROXY_USERNAME and WEBSHARE_PROXY_PASSWORD (free at webshare.io)\n"
+                        "  OR HTTPS_PROXY_URL=https://user:pass@proxy:port"
+                    ) if not self._proxy_config else (
+                        "A proxy is configured but YouTube is still blocking it. "
+                        "Try rotating your proxy IP or using a different proxy provider."
+                    )
                     raise ValueError(
-                        f"YouTube is blocking requests from this server (cloud provider IP detected).\n\n"
-                        f"This is a known limitation when deploying to cloud providers like Render, AWS, GCP, etc.\n\n"
-                        f"**Solutions:**\n"
-                        f"1. Wait 10-30 minutes and try again (IP blocks are often temporary)\n"
-                        f"2. Try a different video with captions enabled\n"
-                        f"3. Use a residential proxy service (requires additional setup)\n"
-                        f"4. Consider using YouTube Data API v3 (official API)\n\n"
-                        f"Video ID: {video_id}\n\n"
-                        f"Original error: {str(e)}"
+                        f"YouTube is blocking requests from this server's IP address. "
+                        f"This is normal on cloud hosts (Render, AWS, etc.).\n\n"
+                        f"{proxy_hint}"
                     )
                 
                 # Check for rate limiting
