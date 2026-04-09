@@ -7,6 +7,7 @@ function ChatInterface({ videoId }) {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isLimitExceeded, setIsLimitExceeded] = useState(false)
   const [copiedIndex, setCopiedIndex] = useState(null)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -39,12 +40,23 @@ function ChatInterface({ videoId }) {
         { role: 'assistant', content: response.answer, timestamp: new Date() },
       ])
     } catch (err) {
-      setError(err.response?.data?.detail || err.message || 'Failed to get response')
+      const statusCode = err.response?.status
+      const backendDetail = err.response?.data?.detail || err.message || 'Failed to get response'
+      const quotaMessage = 'Token limit exceeded (2000/day). Please try again tomorrow or contact support.'
+
+      if (statusCode === 429) {
+        setIsLimitExceeded(true)
+        setError(quotaMessage)
+      } else {
+        setError(backendDetail)
+      }
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: 'Sorry, I encountered an error. Please try again.',
+          content: statusCode === 429
+            ? quotaMessage
+            : 'Sorry, I encountered an error. Please try again.',
           timestamp: new Date(),
           isError: true,
         },
@@ -199,9 +211,9 @@ function ChatInterface({ videoId }) {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question about the video..."
-            disabled={isLoading}
+            disabled={isLoading || isLimitExceeded}
             className="input-field flex-1"
+            placeholder={isLimitExceeded ? 'Daily token limit reached' : 'Ask a question about the video...'}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
@@ -211,7 +223,7 @@ function ChatInterface({ videoId }) {
           />
           <button
             type="submit"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input.trim() || isLimitExceeded}
             className="btn-primary flex items-center gap-2 px-5"
           >
             {isLoading ? (

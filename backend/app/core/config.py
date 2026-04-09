@@ -90,7 +90,7 @@ class Settings(BaseSettings):
 
     # Token quota (per user per day) for chat endpoint
     # Users are identified by X-User-Id header (preferred) or client IP.
-    USER_TOKEN_LIMIT_DEFAULT: int = 1000
+    USER_TOKEN_LIMIT_DEFAULT: int = 2000
     # JSON object mapping specific user ids to limits, e.g. {"alice": 5000, "bob": 100000}
     USER_TOKEN_LIMITS_JSON: str = ""
 

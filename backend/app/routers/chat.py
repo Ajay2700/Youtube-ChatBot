@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app.core.rag_service import rag_service
 from app.core.config import settings
-from app.core.quota import TokenQuotaStore, TokenCounter, resolve_user_key, check_quota
+from app.core.quota import TokenQuotaStore, TokenCounter, resolve_user_key, check_quota, _utc_day_key
 import os
 
 router = APIRouter()
@@ -64,7 +64,7 @@ async def chat(request: ChatRequest, http_request: Request):
 
         # Count tokens for question + answer, then charge against quota.
         tokens_used = _token_counter.count(request.question) + _token_counter.count(result.get("answer", ""))
-        _quota_store.add_tokens(user_key=user_key, day_key=None, tokens=tokens_used)
+        _quota_store.add_tokens(user_key=user_key, day_key=_utc_day_key(), tokens=tokens_used)
         
         return ChatResponse(**result)
     
