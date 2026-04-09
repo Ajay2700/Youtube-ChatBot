@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     
     # CORS origins - stored as string, converted to list after initialization
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001"
+
+    # Optional regex for dynamic preview domains (e.g., Netlify deploy previews).
+    # Example: https://deploy-preview-123--your-site.netlify.app
+    CORS_ORIGIN_REGEX: str = r"^https:\/\/.*\.netlify\.app$"
     
     @model_validator(mode='after')
     def convert_cors_origins(self):
