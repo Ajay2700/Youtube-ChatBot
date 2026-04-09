@@ -62,7 +62,7 @@ function App() {
               <div className="flex-1">
                 <p className="font-semibold text-red-800 dark:text-red-300">Backend Server Not Connected</p>
                 <p className="text-sm text-red-700 dark:text-red-400 mt-1">
-                  Please ensure the backend server is running on http://127.0.0.1:8000
+                  Please ensure the backend is deployed and `VITE_API_BASE_URL` points to it.
                 </p>
                 <button
                   onClick={checkBackend}

@@ -1,8 +1,17 @@
 import axios from 'axios'
 
-// Use 127.0.0.1 (IPv4) not localhost: on Windows, localhost often resolves to ::1 (IPv6)
-// which doesn't match the IPv4-only backend binding.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '')
+const API_BASE_URL_DISPLAY = API_BASE_URL || 'your deployed backend URL'
+
+const ensureApiBaseUrl = () => {
+  if (API_BASE_URL) {
+    return
+  }
+
+  throw new Error(
+    'Frontend is missing VITE_API_BASE_URL. Set it in Netlify to your deployed backend URL and redeploy.'
+  )
+}
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -46,6 +55,7 @@ api.interceptors.response.use(
 
 export const processVideo = async (youtubeUrl) => {
   try {
+    ensureApiBaseUrl()
     const response = await api.post('/api/v1/video/process', {
       youtube_url: youtubeUrl,
     })
@@ -58,6 +68,7 @@ export const processVideo = async (youtubeUrl) => {
 
 export const sendMessage = async (videoId, question) => {
   try {
+    ensureApiBaseUrl()
     const response = await api.post('/api/v1/chat', {
       video_id: videoId,
       question: question,
@@ -71,6 +82,7 @@ export const sendMessage = async (videoId, question) => {
 
 export const checkVideoStatus = async (videoId) => {
   try {
+    ensureApiBaseUrl()
     const response = await api.get(`/api/v1/video/${videoId}/status`)
     return response.data
   } catch (error) {
@@ -82,6 +94,7 @@ export const checkVideoStatus = async (videoId) => {
 // Health check function
 export const checkBackendHealth = async () => {
   try {
+    ensureApiBaseUrl()
     // Use direct fetch to avoid axios timeout issues
     const response = await fetch(`${API_BASE_URL}/health`, {
       method: 'GET',
@@ -100,9 +113,9 @@ export const checkBackendHealth = async () => {
   } catch (error) {
     console.error('Backend health check failed:', error)
     if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-      throw new Error('Backend server is not responding. Please ensure it is running on http://127.0.0.1:8000')
+      throw new Error(`Backend server is not responding. Please ensure it is running on ${API_BASE_URL_DISPLAY}`)
     } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      throw new Error('Cannot connect to backend server. Please ensure it is running on http://127.0.0.1:8000')
+      throw new Error(`Cannot connect to backend server. Please ensure it is running on ${API_BASE_URL_DISPLAY}`)
     }
     throw error
   }
