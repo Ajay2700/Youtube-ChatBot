@@ -129,6 +129,7 @@ function App() {
               <VideoInput
                 onVideoProcessed={handleVideoProcessed}
                 onProcessingStart={() => setIsProcessing(true)}
+                onProcessingFailed={() => setIsProcessing(false)}
                 isProcessing={isProcessing}
               />
             </div>

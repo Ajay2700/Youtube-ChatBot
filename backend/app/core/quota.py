@@ -81,7 +81,13 @@ class TokenQuotaStore:
                 (user_key, day_key, int(tokens), now),
             )
             conn.commit()
-            return self.get_used(user_key, day_key)
+            # Read back on this connection. Calling get_used() here would try to take the
+            # non-reentrant lock a second time and deadlock the request (and the event loop).
+            row = conn.execute(
+                "SELECT tokens_used FROM token_usage WHERE user_key = ? AND day_key = ?",
+                (user_key, day_key),
+            ).fetchone()
+            return int(row[0]) if row else 0
 
 
 class TokenCounter:

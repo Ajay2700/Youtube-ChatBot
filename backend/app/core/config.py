@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     RETRIEVER_K: int = 4
     
     # Proxy settings for youtube-transcript-api (needed on cloud providers)
-    # Option A: Webshare residential proxy (recommended, free tier available at webshare.io)
+    # Option A: Webshare rotating residential proxy (recommended; the free datacenter plan is blocked by YouTube)
     WEBSHARE_PROXY_USERNAME: str = ""
     WEBSHARE_PROXY_PASSWORD: str = ""
     # Option B: Generic HTTPS proxy URL (e.g. https://user:pass@proxy.example.com:8080)

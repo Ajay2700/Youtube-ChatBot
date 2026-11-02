@@ -1,12 +1,24 @@
 """
 RAG Service - Core functionality for YouTube transcript processing and chat
 """
+import logging
 import os
 import re
+import time
 from typing import Optional, List, Dict
 from pathlib import Path
 
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled
+import openai
+from youtube_transcript_api import (
+    AgeRestricted,
+    InvalidVideoId,
+    NoTranscriptFound,
+    RequestBlocked,
+    TranscriptsDisabled,
+    VideoUnavailable,
+    VideoUnplayable,
+    YouTubeTranscriptApi,
+)
 from youtube_transcript_api.proxies import GenericProxyConfig
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
@@ -16,6 +28,27 @@ from langchain_core.runnables import RunnableParallel, RunnablePassthrough, Runn
 from langchain_core.output_parsers import StrOutputParser
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+# YouTube labels English tracks with a few codes; the library matches them exactly.
+ENGLISH_CODES = ("en", "en-US", "en-GB")
+
+
+class AIServiceUnavailable(RuntimeError):
+    """OpenAI rejected or could not serve a request (billing, quota, API key, or network)."""
+
+    def __init__(self, reason: str):
+        super().__init__(f"The AI service is temporarily unavailable ({reason}). Please try again later.")
+        self.reason = reason
+
+
+def _openai_failure(exc: Exception) -> AIServiceUnavailable:
+    # OpenAI error codes (billing_not_active, insufficient_quota, invalid_api_key) tell the
+    # operator what to fix; the full provider message stays in the server log.
+    reason = str(getattr(exc, "code", None) or exc.__class__.__name__)
+    logger.error("OpenAI request failed (%s): %s", reason, exc)
+    return AIServiceUnavailable(reason)
 
 
 class RAGService:
@@ -102,95 +135,61 @@ class RAGService:
         
         raise ValueError(f"Invalid YouTube URL or video ID: {youtube_url}")
     
+    def _blocked_message(self) -> str:
+        if self._proxy_config:
+            hint = (
+                "A proxy is configured, but YouTube is blocking it too. Datacenter and free proxies "
+                "are usually blocked; use a rotating residential proxy (e.g. Webshare's Residential "
+                "plan) or check the proxy credentials."
+            )
+        else:
+            hint = (
+                "To fix this, set a rotating residential proxy in the server's environment:\n"
+                "  WEBSHARE_PROXY_USERNAME and WEBSHARE_PROXY_PASSWORD (Webshare Residential plan)\n"
+                "  OR HTTPS_PROXY_URL=https://user:pass@proxy:port"
+            )
+        return (
+            "YouTube is blocking transcript requests from this server's IP address. "
+            "This is common on cloud hosts (Render, AWS, etc.).\n\n" + hint
+        )
+
     def fetch_transcript(self, video_id: str) -> str:
-        """Fetch transcript from YouTube with retry and better error handling"""
-        import time
-        
-        max_retries = 3
-        retry_delay = 2  # seconds
-        
-        for attempt in range(max_retries):
+        """Fetch the English transcript, turning YouTube failures into actionable messages."""
+        ytt_api = YouTubeTranscriptApi(proxy_config=self._proxy_config) if self._proxy_config else YouTubeTranscriptApi()
+        last_error: Optional[Exception] = None
+
+        for attempt in range(2):
             try:
-                ytt_api = YouTubeTranscriptApi(proxy_config=self._proxy_config) if self._proxy_config else YouTubeTranscriptApi()
-                fetched = ytt_api.fetch(video_id, languages=("en",))
-                transcript_list = fetched.to_raw_data()
-                transcript = " ".join(chunk["text"] for chunk in transcript_list)
-                return transcript
-                
+                fetched = ytt_api.fetch(video_id, languages=ENGLISH_CODES)
+                return " ".join(chunk["text"] for chunk in fetched.to_raw_data())
+            # Permanent failures: retrying cannot help, so report them straight away.
+            except RequestBlocked:  # includes IpBlocked, which the library raises for HTTP 429
+                raise ValueError(self._blocked_message())
             except TranscriptsDisabled:
                 raise ValueError(
                     f"No captions/transcripts are available for video {video_id}. "
                     "The video may not have captions enabled."
                 )
+            except NoTranscriptFound:
+                raise ValueError(
+                    f"No English transcript found for video {video_id}. "
+                    "The video may not have English captions available."
+                )
+            except (VideoUnavailable, VideoUnplayable, AgeRestricted, InvalidVideoId):
+                raise ValueError(
+                    f"Video {video_id} is unavailable. It may be private, deleted, or age-restricted."
+                )
             except Exception as e:
-                error_msg = str(e).lower()
-                
-                # Check for IP block / cloud provider block
-                # Keep this check conservative; lots of unrelated errors can contain "ip".
-                if (
-                    "cloud provider" in error_msg
-                    or "unusual traffic" in error_msg
-                    or "captcha" in error_msg
-                    or "automated queries" in error_msg
-                    or "blocking" in error_msg
-                    or "blocked" in error_msg
-                ):
-                    proxy_hint = (
-                        "To fix this, set a residential proxy in Render env vars:\n"
-                        "  WEBSHARE_PROXY_USERNAME and WEBSHARE_PROXY_PASSWORD (free at webshare.io)\n"
-                        "  OR HTTPS_PROXY_URL=https://user:pass@proxy:port"
-                    ) if not self._proxy_config else (
-                        "A proxy is configured but YouTube is still blocking it. "
-                        "Try rotating your proxy IP or using a different proxy provider."
-                    )
-                    raise ValueError(
-                        f"YouTube is blocking requests from this server's IP address. "
-                        f"This is normal on cloud hosts (Render, AWS, etc.).\n\n"
-                        f"{proxy_hint}"
-                    )
-                
-                # Check for rate limiting
-                if "too many" in error_msg or "rate limit" in error_msg or "429" in error_msg:
-                    if attempt < max_retries - 1:
-                        wait_time = retry_delay * (attempt + 1)
-                        time.sleep(wait_time)
-                        continue
-                    raise ValueError(
-                        f"YouTube is rate-limiting requests. Please try again in a few minutes. "
-                        f"Video: {video_id}"
-                    )
-                
-                # Check for video unavailable
-                if "unavailable" in error_msg or "private" in error_msg or "deleted" in error_msg:
-                    raise ValueError(
-                        f"Video {video_id} is unavailable. It may be private, deleted, or age-restricted."
-                    )
-                
-                # Check for no transcript found
-                if "no transcript" in error_msg or "not found" in error_msg:
-                    raise ValueError(
-                        f"No English transcript found for video {video_id}. "
-                        "The video may not have English captions available."
-                    )
-                
-                # For other errors, retry if attempts remaining
-                if attempt < max_retries - 1:
-                    wait_time = retry_delay * (attempt + 1)
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    # Last attempt failed, raise with original error
-                    raise ValueError(
-                        "Error fetching transcript from YouTube. "
-                        "This is usually due to missing/disabled captions, rate limits, or a temporarily blocked request.\n\n"
-                        f"Video ID: {video_id}\n"
-                        f"Original error: {str(e)}"
-                    )
-        
-        # If we get here, all retries failed (shouldn't happen, but just in case)
+                # Network hiccups and unexpected YouTube responses get one quick retry.
+                last_error = e
+                if attempt == 0:
+                    time.sleep(2)
+
         raise ValueError(
-            f"Failed to fetch transcript for video {video_id} after {max_retries} attempts. "
-            "Please try again later or use a different video."
+            "Error fetching transcript from YouTube. "
+            "This is usually due to missing/disabled captions, rate limits, or a temporarily blocked request.\n\n"
+            f"Video ID: {video_id}\n"
+            f"Original error: {last_error}"
         )
     
     def process_video(self, video_id: str, youtube_url: Optional[str] = None) -> Dict:
@@ -228,8 +227,11 @@ class RAGService:
             # Split into chunks
             chunks = self.text_splitter.create_documents([transcript])
             
-            # Create vector store
-            vector_store = FAISS.from_documents(chunks, self.embeddings)
+            # Create vector store (embeds every chunk through OpenAI)
+            try:
+                vector_store = FAISS.from_documents(chunks, self.embeddings)
+            except openai.OpenAIError as exc:
+                raise _openai_failure(exc) from exc
             
             # Save vector store
             vector_store.save_local(
@@ -300,6 +302,8 @@ Answer:""",
                 "question": question,
                 "answer": answer
             }
+        except openai.OpenAIError as exc:
+            raise _openai_failure(exc) from exc
         except Exception as e:
             raise ValueError(f"Error generating answer: {str(e)}")
 

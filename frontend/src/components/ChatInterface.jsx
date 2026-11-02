@@ -113,7 +113,7 @@ function ChatInterface({ videoId }) {
               Ask anything about the video
             </h3>
             <p className="text-sm text-gray-500 dark:text-slate-400 mb-7 max-w-sm">
-              I'll answer based on the transcript using RAG.
+              I&apos;ll answer based on the transcript using RAG.
             </p>
 
             <div className="w-full max-w-lg grid grid-cols-1 sm:grid-cols-2 gap-2">

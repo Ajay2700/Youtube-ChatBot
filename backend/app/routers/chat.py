@@ -4,7 +4,7 @@ Chat router
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from app.core.rag_service import rag_service
+from app.core.rag_service import AIServiceUnavailable, rag_service
 from app.core.config import settings
 from app.core.quota import TokenQuotaStore, TokenCounter, resolve_user_key, check_quota, _utc_day_key
 import os
@@ -30,8 +30,9 @@ class ChatResponse(BaseModel):
     answer: str
 
 
+# Plain `def` (run in a worker thread): the RAG chain and quota store do blocking I/O.
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest, http_request: Request):
+def chat(request: ChatRequest, http_request: Request):
     """
     Chat with the RAG system about a processed video
     """
@@ -67,7 +68,12 @@ async def chat(request: ChatRequest, http_request: Request):
         _quota_store.add_tokens(user_key=user_key, day_key=_utc_day_key(), tokens=tokens_used)
         
         return ChatResponse(**result)
-    
+
+    except HTTPException:
+        # Keep deliberate statuses such as the 429 quota response (the frontend relies on it).
+        raise
+    except AIServiceUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

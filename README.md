@@ -20,7 +20,7 @@ A production-ready web application that allows users to chat with YouTube video 
 - Node.js 20+
 - Docker & Docker Compose (optional, for containerized deployment)
 - OpenAI API Key
-- Residential proxy credentials (required for cloud deployment — free tier at [webshare.io](https://www.webshare.io/))
+- Rotating residential proxy credentials (required for cloud deployment — e.g. a Webshare **Residential** plan; free/datacenter proxies are blocked by YouTube)
 
 ## 🏗️ Architecture
 
@@ -208,11 +208,13 @@ GET /api/v1/video/{video_id}/status
 
 ## 🌐 Proxy Setup (Cloud Deployment)
 
-YouTube blocks transcript requests from cloud provider IPs (Render, AWS, GCP, etc.). A residential proxy is required for production deployment.
+YouTube blocks transcript requests from cloud provider IPs (Render, AWS, GCP, etc.). A rotating **residential** proxy is required for production deployment — datacenter proxies, including Webshare's free plan, are blocked as well.
+
+If the app reports *"A proxy is configured, but YouTube is blocking it too"*, the configured proxy is not residential (or its credentials are wrong).
 
 ### Option A: Webshare (Recommended)
 
-1. Sign up at [webshare.io](https://www.webshare.io/) (free tier: 10 proxies)
+1. Sign up at [webshare.io](https://www.webshare.io/) and buy a **Residential** proxy plan (not "Proxy Server" or "Static Residential" — the free plan's datacenter proxies don't work for YouTube)
 2. Go to **Dashboard → Proxy → Rotating Proxy**
 3. Copy your **username** and **password**
 4. Set in Render env vars:

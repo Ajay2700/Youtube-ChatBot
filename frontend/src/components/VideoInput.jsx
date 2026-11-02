@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Loader2, Play, AlertCircle, CheckCircle2, Link2, X } from 'lucide-react'
 import { processVideo } from '../services/api'
 
-function VideoInput({ onVideoProcessed, onProcessingStart, isProcessing }) {
+function VideoInput({ onVideoProcessed, onProcessingStart, onProcessingFailed, isProcessing }) {
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
@@ -38,10 +38,16 @@ function VideoInput({ onVideoProcessed, onProcessingStart, isProcessing }) {
       return
     }
 
+    // The free backend sleeps when idle; say so if the first request is slow.
+    const slowHint = setTimeout(() => {
+      setStatus('Still working... the server may be waking up, which can take up to a minute.')
+    }, 8000)
+
     try {
       onProcessingStart()
       setStatus('Fetching transcript and creating embeddings...')
       const response = await processVideo(youtubeUrl)
+      clearTimeout(slowHint)
 
       if (response.video_id) {
         setIsSuccess(true)
@@ -51,9 +57,12 @@ function VideoInput({ onVideoProcessed, onProcessingStart, isProcessing }) {
         }, 1200)
       }
     } catch (err) {
+      clearTimeout(slowHint)
       setError(err.response?.data?.detail || err.message || 'Failed to process video')
       setStatus('')
       setIsSuccess(false)
+      // Re-enable the form so the user can retry or try another video.
+      onProcessingFailed?.()
     }
   }
 

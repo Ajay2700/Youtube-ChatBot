@@ -41,13 +41,13 @@ api.interceptors.response.use(
     if (error.code === 'ECONNABORTED') {
       error.message = 'Request timeout. The server is taking too long to respond.'
     } else if (error.code === 'ERR_NETWORK') {
-      error.message = 'Network error. Please check if the backend server is running on http://127.0.0.1:8000'
+      error.message = `Network error. Please check that the backend is reachable at ${API_BASE_URL_DISPLAY}`
     } else if (error.response) {
       // Server responded with error status
       error.message = error.response.data?.detail || error.response.data?.message || error.message
     } else if (error.request) {
       // Request made but no response received
-      error.message = 'No response from server. Please ensure the backend is running on http://127.0.0.1:8000'
+      error.message = `No response from server. Please ensure the backend is running at ${API_BASE_URL_DISPLAY}`
     }
     return Promise.reject(error)
   }
@@ -56,9 +56,13 @@ api.interceptors.response.use(
 export const processVideo = async (youtubeUrl) => {
   try {
     ensureApiBaseUrl()
-    const response = await api.post('/api/v1/video/process', {
-      youtube_url: youtubeUrl,
-    })
+    // Processing can outlast the default timeout: a sleeping free-tier backend takes ~1 min
+    // to wake, and long transcripts need many embedding calls.
+    const response = await api.post(
+      '/api/v1/video/process',
+      { youtube_url: youtubeUrl },
+      { timeout: 180000 },
+    )
     return response.data
   } catch (error) {
     console.error('Error processing video:', error)

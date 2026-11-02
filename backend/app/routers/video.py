@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, HttpUrl
 from typing import Optional
 
-from app.core.rag_service import rag_service
+from app.core.rag_service import AIServiceUnavailable, rag_service
 
 router = APIRouter()
 
@@ -23,8 +23,10 @@ class VideoProcessResponse(BaseModel):
     message: str
 
 
+# Plain `def`: FastAPI runs it in a worker thread, so a slow transcript fetch or embedding
+# run doesn't freeze the event loop (and every other request) while it works.
 @router.post("/video/process", response_model=VideoProcessResponse)
-async def process_video(request: VideoProcessRequest):
+def process_video(request: VideoProcessRequest):
     """
     Process a YouTube video: fetch transcript and create vector store
     """
@@ -41,7 +43,11 @@ async def process_video(request: VideoProcessRequest):
         )
         
         return VideoProcessResponse(**result)
-    
+
+    except HTTPException:
+        raise
+    except AIServiceUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
