@@ -9,6 +9,7 @@ from typing import Optional, List, Dict
 from pathlib import Path
 
 import openai
+import requests
 from youtube_transcript_api import (
     AgeRestricted,
     InvalidVideoId,
@@ -179,7 +180,16 @@ class RAGService:
                 raise ValueError(
                     f"Video {video_id} is unavailable. It may be private, deleted, or age-restricted."
                 )
+            except requests.exceptions.ProxyError:
+                raise ValueError(
+                    "Could not connect through the configured proxy. Check the proxy settings "
+                    "(WEBSHARE_PROXY_USERNAME / WEBSHARE_PROXY_PASSWORD or HTTPS_PROXY_URL)."
+                )
             except Exception as e:
+                # With a proxy config, the HTTP layer retries YouTube's 429s itself and gives up
+                # with RetryError before the library can raise IpBlocked: it is the same block.
+                if isinstance(e, requests.exceptions.RetryError) and "429" in str(e):
+                    raise ValueError(self._blocked_message())
                 # Network hiccups and unexpected YouTube responses get one quick retry.
                 last_error = e
                 if attempt == 0:
